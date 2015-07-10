@@ -1,8 +1,8 @@
 use std::mem::size_of;
-use std::marker::PhantomData;
 
 use byteorder::{ByteOrder, BigEndian, LittleEndian};
 
+// ----------------------------------------------------------------------
 
 /// This trait is implemented by anything that can write itself as bytes to a
 /// user-provided buffer.  The function will panic if the buffer is not large
@@ -22,6 +22,7 @@ macro_rules! as_bytes_impl {
     };
 }
 
+// Manually implemented - byteorder has no `write_u8` function.
 impl AsBytes for u8 {
     fn as_bytes<O: ByteOrder>(&self, buf: &mut [u8]) -> usize {
         buf[0] = *self;
@@ -33,85 +34,81 @@ as_bytes_impl!(u16, write_u16);
 as_bytes_impl!(u32, write_u32);
 as_bytes_impl!(u64, write_u64);
 
+// Useful implementations for things behind references.
 impl<'a, T: AsBytes> AsBytes for &'a T {
     fn as_bytes<O: ByteOrder>(&self, buf: &mut [u8]) -> usize {
         (**self).as_bytes::<O>(buf)
     }
 }
 
+// Useful implementations for things behind mutable references.
 impl<'a, T: AsBytes> AsBytes for &'a mut T {
     fn as_bytes<O: ByteOrder>(&self, buf: &mut [u8]) -> usize {
         (**self).as_bytes::<O>(buf)
     }
 }
 
+// ----------------------------------------------------------------------
 
+/// EndianWrapper is a wrapper that allows converting an entire slice of things
+/// that implement `AsBytes` into a single byte vector.
 #[derive(Debug)]
 pub struct EndianWrapper<'a, T: AsBytes + 'a>(pub &'a [T]);
 
+// ----------------------------------------------------------------------
 
-impl<'a, T: AsBytes + 'a> EndianWrapper<'a, T> {
-    pub fn iter_bytes<O: ByteOrder>(&self) -> EndianWrapperIter<T, O> {
-        EndianWrapperIter {
-            underlying: self,
-            count: 0,
-            buf: [0; 8],
-            offset: 0,
-            valid: 0,
-            phantom: PhantomData,
+#[derive(Debug, PartialEq, Eq)]
+pub enum Endianness {
+    LittleEndian,
+    BigEndian,
+}
+
+/// AsByteVec is a trait for things that can convert themselves to vectors of
+/// bytes with a given endianness.
+pub trait AsByteVec {
+    /// This function converts this item into a vector of bytes, using the
+    /// given endianness.
+    fn as_byte_vec(&self, e: Endianness) -> Vec<u8>;
+}
+
+impl<'a, T: AsBytes + 'a> AsByteVec for EndianWrapper<'a, T> {
+    fn as_byte_vec(&self, e: Endianness) -> Vec<u8> {
+        let &EndianWrapper(ref underlying) = self;
+
+        let mut v = Vec::with_capacity(underlying.len() * size_of::<T>());
+        let mut buf = [0; 8];
+
+        if e == Endianness::BigEndian {
+            for elem in *underlying {
+                let len = elem.as_bytes::<BigEndian>(&mut buf);
+                v.extend(&buf[0..len]);
+            }
+        } else {
+            for elem in *underlying {
+                let len = elem.as_bytes::<LittleEndian>(&mut buf);
+                v.extend(&buf[0..len]);
+            }
         }
+
+        v
     }
 }
 
-
-pub struct EndianWrapperIter<'a, T, O>
-where T: AsBytes + 'static,
-      O: ByteOrder
-{
-    underlying: &'a EndianWrapper<'a, T>,
-    count: usize,
-
-    buf: [u8; 8],
-    offset: usize,
-    valid: usize,
-
-    phantom: PhantomData<O>,
-}
-
-
-impl<'a, T: AsBytes, O: ByteOrder> Iterator for EndianWrapperIter<'a, T, O> {
-    type Item = u8;
-
-    fn next(&mut self) -> Option<u8> {
-        if self.offset < self.valid {
-            let curr = self.buf[self.offset];
-            self.offset += 1;
-            return Some(curr);
-        }
-
-        let len = {
-            let &EndianWrapper(ref underlying) = self.underlying;
-            underlying.len()
-        };
-
-        if self.count >= len {
-            return None;
-        }
-
-        let &EndianWrapper(ref underlying) = self.underlying;
-        let it = &underlying[self.count];
-        self.count += 1;
-
-        {
-            self.valid = it.as_bytes::<O>(&mut self.buf);
-        }
-
-        self.offset = 1;
-        Some(self.buf[0])
+// Useful implementations for things behind references.
+impl<'a, T: AsByteVec> AsByteVec for &'a T {
+    fn as_byte_vec(&self, e: Endianness) -> Vec<u8> {
+        (**self).as_byte_vec(e)
     }
 }
 
+// Useful implementations for things behind mutable references.
+impl<'a, T: AsByteVec> AsByteVec for &'a mut T {
+    fn as_byte_vec(&self, e: Endianness) -> Vec<u8> {
+        (**self).as_byte_vec(e)
+    }
+}
 
+// ----------------------------------------------------------------------
 
 #[cfg(test)]
 static TEST_CONSTANTS: EndianWrapper<'static, u32> = EndianWrapper(&[
@@ -123,7 +120,7 @@ static TEST_CONSTANTS: EndianWrapper<'static, u32> = EndianWrapper(&[
 
 #[test]
 fn test_as_bytes_be() {
-    let bytes = TEST_CONSTANTS.iter_bytes::<BigEndian>().collect::<Vec<u8>>();
+    let bytes = TEST_CONSTANTS.as_byte_vec(Endianness::BigEndian);
 
     assert_eq!(bytes, &[
         0x12, 0x34, 0x56, 0x78,
@@ -134,7 +131,7 @@ fn test_as_bytes_be() {
 
 #[test]
 fn test_as_bytes_le() {
-    let bytes = TEST_CONSTANTS.iter_bytes::<LittleEndian>().collect::<Vec<u8>>();
+    let bytes = TEST_CONSTANTS.as_byte_vec(Endianness::LittleEndian);
 
     assert_eq!(bytes, &[
         0x78, 0x56, 0x34, 0x12,

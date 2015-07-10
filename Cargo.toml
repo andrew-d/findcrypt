@@ -4,4 +4,15 @@ version = "0.0.1"
 authors = ["Andrew Dunham <andrew@du.nham.ca>"]
 
 [dependencies]
+ansi_term = "*"
 byteorder = "*"
+clap = "*"
+fern = "0.3"
+libc = "*"
+log = "0.3"
+mmap = "*"
+time = "0.1"
+
+[dependencies.aho-corasick]
+git = "https://github.com/andrew-d/aho-corasick"
+rev = "807130ae4530102d2eb5671421739e255201fb21"
