@@ -3,6 +3,7 @@ use super::endian::AsByteVec;
 use std::clone::Clone;
 use std::cmp::{PartialEq, Eq};
 use std::hash::{Hash, Hasher};
+use std::fmt;
 
 mod crypto;
 mod hash;
@@ -44,6 +45,17 @@ impl Hash for Pattern {
         self.algorithm.hash(state);
         self.desc.hash(state);
         self.varname.hash(state);
+    }
+}
+
+
+impl fmt::Debug for Pattern {
+    fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
+        fmt.debug_struct("Pattern")
+            .field("algorithm", &self.algorithm)
+            .field("desc",      &self.desc)
+            .field("varname",   &self.varname)
+            .finish()
     }
 }
 
