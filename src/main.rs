@@ -70,7 +70,9 @@ fn build_automaton(patterns: &Vec<patterns::Pattern>) -> AcAutomaton<Vec<u8>> {
 fn search_file<P>(patterns: &Vec<patterns::Pattern>, at: &AcAutomaton<Vec<u8>>, input_path: P)
 where P: std::convert::AsRef<std::path::Path>
 {
-    with_file_mmap(input_path, |map| {
+    let path = input_path.as_ref();
+
+    with_file_mmap(path, |map| {
         // Run the automaton on the file!
         for mm in at.stream_find(map) {
             // Reading should never fail, since we're using a mmap'd buffer.
@@ -81,13 +83,18 @@ where P: std::convert::AsRef<std::path::Path>
             // corresponding `Pattern`.
             let pati = mtch.pati / 2;
             let endian = if mtch.pati % 2 == 0 {
-                "Little Endian"
+                "LE"
             } else {
-                "Big Endian"
+                "BE"
             };
             let pattern = &patterns[pati];
 
-            println!("0x{:08x}: {}/{}/{}", mtch.start, pattern.algorithm, pattern.desc, endian);
+            println!("{}:0x{:08x}:{} ({}) - {}",
+                path.display(),
+                mtch.start,
+                pattern.algorithm,
+                endian,
+                pattern.desc);
         }
     });
 }
