@@ -23,7 +23,7 @@ fn main() {
     let matches = App::new("myapp")
         .version("0.0.1")
         .author("Andrew Dunham <andrew@du.nham.ca>")
-        .about("Searches a binary for patterns that indicate cryptographic algorithms")
+        .about("Searches files for patterns that indicate cryptographic algorithms")
         .arg(Arg::with_name("input")
              .help("Sets the input file(s) to search")
              .required(true)
@@ -36,9 +36,11 @@ fn main() {
         .get_matches();
     logger::init_logger_config(&matches);
 
+    let patterns = patterns::get_patterns();
+    // TODO: subcommand to list matched algorithms
+
     // Build Aho-Corasick automaton.
     debug!("Creating Aho-Corasick automaton");
-    let patterns = patterns::get_patterns();
     let at = build_automaton(&patterns);
 
     debug!("Starting search");
@@ -56,6 +58,7 @@ fn build_automaton(patterns: &Vec<patterns::Pattern>) -> AcAutomaton<Vec<u8>> {
     let mut patterns_vec = vec![];
 
     for pat in patterns {
+        // NOTE: Order matters here! See comment in `search_file`.
         patterns_vec.push(pat.bytes.as_byte_vec(endian::Endianness::LittleEndian));
         patterns_vec.push(pat.bytes.as_byte_vec(endian::Endianness::BigEndian));
     }
@@ -73,8 +76,9 @@ where P: std::convert::AsRef<std::path::Path>
             // Reading should never fail, since we're using a mmap'd buffer.
             let mtch = mm.unwrap();
 
-            // We add two patterns to the automaton - little endian, and
-            // big-endian.  We extract the relevent information.
+            // When building, we added two patterns to the automaton - little
+            // endian and big-endian, in that order.  Reverse this back to the
+            // corresponding `Pattern`.
             let pati = mtch.pati / 2;
             let endian = if mtch.pati % 2 == 0 {
                 "Little Endian"

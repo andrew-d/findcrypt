@@ -2,10 +2,11 @@
 
 `findcrypt` is a tool that can scan a file to look for signatures of common
 crypto algorithms (e.g. SHA256, AES/Rijndael, etc.).  It supports searching for
-signatures in both big- and little-endian files, along with multiple files.
-The search algorithm is also fast enough to search a large amount of data in
-a short amount of time - some unscientific benchmarks show that the tool can
-search about 1.1 GiB of data in 18 seconds, or a speed of about 60 MiB/s:
+signatures in both big- and little-endian files.
+
+The search algorithm used is also fast enough to search a large amount of data
+in a short amount of time - some unscientific benchmarks show that the tool can
+search about 1.1 GiB of data in about 20 seconds, at a speed of about 60 MiB/s:
 
 ## Simple Benchmark
 
@@ -19,7 +20,7 @@ $ time ./target/release/findcrypt ubuntu-14.10-desktop-amd64.iso
 ./target/release/findcrypt ubuntu-14.10-desktop-amd64.iso  10.16s user 1.55s system 65% cpu 17.758 total
 ```
 
-This gives an exact speed of 62.45MiB/sec of searching
+This works out to a search speed of 62.45MiB/sec.
 
 ## License
 
