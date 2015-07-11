@@ -1,14 +1,50 @@
 use super::endian::AsByteVec;
 
+use std::clone::Clone;
+use std::cmp::{PartialEq, Eq};
+use std::hash::{Hash, Hasher};
+
 mod crypto;
 mod hash;
 mod other;
+
 
 pub struct Pattern {
     pub algorithm: &'static str,
     pub desc: &'static str,
     pub bytes: &'static AsByteVec,
     pub varname: &'static str,
+}
+
+
+impl PartialEq for Pattern {
+    fn eq(&self, other: &Pattern) -> bool {
+        self.varname == other.varname
+    }
+}
+
+
+impl Eq for Pattern {}
+
+
+impl Clone for Pattern {
+    fn clone(&self) -> Self {
+        Pattern {
+            algorithm: self.algorithm,
+            desc:      self.desc,
+            bytes:     self.bytes,
+            varname:   self.varname,
+        }
+    }
+}
+
+
+impl Hash for Pattern {
+    fn hash<H>(&self, state: &mut H) where H: Hasher {
+        self.algorithm.hash(state);
+        self.desc.hash(state);
+        self.varname.hash(state);
+    }
 }
 
 
