@@ -3,6 +3,7 @@ extern crate ansi_term;
 extern crate byteorder;
 extern crate clap;
 extern crate fern;
+#[macro_use] extern crate itertools;
 extern crate libc;
 #[macro_use] extern crate log;
 extern crate mmap;
@@ -11,7 +12,8 @@ extern crate time;
 use std::fs;
 
 use aho_corasick::{Automaton, AcAutomaton};
-use clap::{Arg, App};
+use clap::{Arg, App, SubCommand};
+use itertools::Itertools;
 use mmap::{MemoryMap, MapOption};
 
 mod endian;
@@ -24,33 +26,44 @@ fn main() {
         .version("0.0.1")
         .author("Andrew Dunham <andrew@du.nham.ca>")
         .about("Searches files for patterns that indicate cryptographic algorithms")
-        .arg(Arg::with_name("input")
-             .help("Sets the input file(s) to search")
-             .required(true)
-             .multiple(true)
-             .index(1))
         .arg(Arg::with_name("debug")
              .short("d")
              .multiple(true)
              .help("Sets the level of debugging information"))
+        .subcommand_required(true)
+        .subcommand(SubCommand::with_name("scan")
+                    .about("Search the given input file(s)")
+                    .arg(Arg::with_name("input")
+                         .help("Sets the input file(s) to search")
+                         .required(true)
+                         .multiple(true)
+                         .index(1)))
+        .subcommand(SubCommand::with_name("list")
+                    .about("Lists available signatures"))
         .get_matches();
     logger::init_logger_config(&matches);
 
     let patterns = patterns::get_patterns();
-    // TODO: subcommand to list matched algorithms
 
-    // Build Aho-Corasick automaton.
-    debug!("Creating Aho-Corasick automaton");
-    let at = build_automaton(&patterns);
-
-    debug!("Starting search");
-    if let Some(ref input_paths) = matches.values_of("input") {
-        for input_path in input_paths {
-            info!("Searching file: {}", input_path);
-            search_file(&patterns, &at, input_path);
+    if let Some(_) = matches.subcommand_matches("list") {
+        println!("Supported signatures:\n--------------------------------------------------");
+        for pat in patterns.into_iter().unique_by(|p| p.algorithm) {
+            println!(" - {}", pat.algorithm);
         }
-    } else {
-        warn!("No input file(s) given");
+    } else if let Some(submatches) = matches.subcommand_matches("scan") {
+        // Build Aho-Corasick automaton.
+        debug!("Creating Aho-Corasick automaton");
+        let at = build_automaton(&patterns);
+
+        debug!("Starting search");
+        if let Some(ref input_paths) = submatches.values_of("input") {
+            for input_path in input_paths {
+                info!("Searching file: {}", input_path);
+                search_file(&patterns, &at, input_path);
+            }
+        } else {
+            warn!("No input file(s) given");
+        }
     }
 }
 
