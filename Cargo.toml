@@ -11,9 +11,12 @@ fern = "0.3"
 itertools = "0.3"
 libc = "*"
 log = "0.3"
-mmap = "*"
 time = "0.1"
 
 [dependencies.aho-corasick]
 git = "https://github.com/andrew-d/aho-corasick"
 rev = "807130ae4530102d2eb5671421739e255201fb21"
+
+[dependencies.mmap]
+git = "https://github.com/retep998/rust-mmap"
+rev = "4617dd0901d6899faebfbc427714b89fcb889880"
