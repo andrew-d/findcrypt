@@ -1,5 +1,7 @@
 # findcrypt
 
+[![Build Status](https://travis-ci.org/andrew-d/findcrypt.svg?branch=master)](https://travis-ci.org/andrew-d/findcrypt)
+
 `findcrypt` is a tool that can scan a file to look for signatures of common
 crypto algorithms (e.g. SHA256, AES/Rijndael, etc.).  It supports searching for
 signatures in both big- and little-endian files.
