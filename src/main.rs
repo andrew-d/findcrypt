@@ -116,40 +116,39 @@ where P: std::convert::AsRef<std::path::Path>
 // --------------------------------------------------
 
 #[cfg(unix)]
-use std::os::unix::io::AsRawFd;
-
-#[cfg(unix)]
 fn get_fd(file: &fs::File) -> libc::c_int {
-  file.as_raw_fd()
+    use std::os::unix::io::AsRawFd;
+    file.as_raw_fd()
 }
 
 #[cfg(windows)]
 fn get_fd(file: &fs::File) -> libc::HANDLE {
-  file.as_raw_handle()
+    use std::os::windows::io::AsRawHandle;
+    file.as_raw_handle() as libc::HANDLE
 }
 
 fn with_file_mmap<P, F, T>(path: P, f: F) -> T
-    where P: std::convert::AsRef<std::path::Path>,
-          F: Fn(&[u8]) -> T
+where P: std::convert::AsRef<std::path::Path>,
+      F: Fn(&[u8]) -> T
 {
-  let file = fs::OpenOptions::new()
-    .read(true)
-    .open(path)
-    .unwrap();
+    let file = fs::OpenOptions::new()
+        .read(true)
+        .open(path)
+        .unwrap();
 
-  // Get the size of the file.
-  let len = file.metadata().unwrap().len() as usize;
+    // Get the size of the file.
+    let len = file.metadata().unwrap().len() as usize;
 
-  let fd = get_fd(&file);
+    let fd = get_fd(&file);
 
-  let chunk = MemoryMap::new(len, &[
-    MapOption::MapReadable,
-    MapOption::MapFd(fd),
-  ]).unwrap();
+    let chunk = MemoryMap::new(len, &[
+                               MapOption::MapReadable,
+                               MapOption::MapFd(fd),
+    ]).unwrap();
 
-  let file_data: &[u8] = unsafe {
-    std::slice::from_raw_parts(chunk.data() as *const _, chunk.len())
-  };
+    let file_data: &[u8] = unsafe {
+        std::slice::from_raw_parts(chunk.data() as *const _, chunk.len())
+    };
 
-  f(file_data)
+    f(file_data)
 }
