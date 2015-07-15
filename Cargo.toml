@@ -4,6 +4,7 @@ version = "0.0.1"
 authors = ["Andrew Dunham <andrew@du.nham.ca>"]
 
 [dependencies]
+aho-corasick = "0.3"
 ansi_term = "*"
 byteorder = "*"
 clap = "*"
@@ -12,10 +13,6 @@ itertools = "0.3"
 libc = "*"
 log = "0.3"
 time = "0.1"
-
-[dependencies.aho-corasick]
-git = "https://github.com/andrew-d/aho-corasick"
-rev = "807130ae4530102d2eb5671421739e255201fb21"
 
 [dependencies.mmap]
 git = "https://github.com/retep998/rust-mmap"
