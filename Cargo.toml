@@ -9,9 +9,11 @@ ansi_term = "*"
 byteorder = "*"
 clap = "*"
 fern = "0.3"
+handlebars = "*"
 itertools = "0.3"
 libc = "*"
 log = "0.3"
+rustc-serialize = "0.3"
 time = "0.1"
 
 [dependencies.mmap]

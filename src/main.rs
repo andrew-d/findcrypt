@@ -3,18 +3,23 @@ extern crate ansi_term;
 extern crate byteorder;
 extern crate clap;
 extern crate fern;
+extern crate handlebars;
 #[macro_use] extern crate itertools;
 extern crate libc;
 #[macro_use] extern crate log;
 extern crate mmap;
+extern crate rustc_serialize;
 extern crate time;
 
+use std::collections::BTreeMap;
 use std::fs;
 
 use aho_corasick::{Automaton, AcAutomaton};
 use clap::{Arg, App, SubCommand};
+use handlebars::Handlebars;
 use itertools::Itertools;
 use mmap::{MemoryMap, MapOption};
+use rustc_serialize::json::{Json, ToJson};
 
 mod endian;
 mod logger;
@@ -33,11 +38,15 @@ fn main() {
         .subcommand_required(true)
         .subcommand(SubCommand::with_name("scan")
                     .about("Search the given input file(s)")
+                    .arg(Arg::with_name("template")
+                         .long("template")
+                         .takes_value(true)
+                         .help("Handlebars template specifying the output format for found items."))
                     .arg(Arg::with_name("input")
                          .help("Sets the input file(s) to search")
                          .required(true)
                          .multiple(true)
-                         .index(1)))
+                         ))
         .subcommand(SubCommand::with_name("list")
                     .about("Lists available signatures"))
         .get_matches();
@@ -51,6 +60,16 @@ fn main() {
             println!(" - {}", pat.algorithm);
         }
     } else if let Some(submatches) = matches.subcommand_matches("scan") {
+        debug!("Compiling Handlebars template");
+        let mut hbs = Handlebars::new();
+        let template = submatches.value_of("template")
+            .unwrap_or("{{path}}:{{address}}:{{algorithm}} ({{endian}}) - {{desc}}");
+
+        if let Err(e) = hbs.register_template_string("crypt", template.to_string()) {
+            error!("Could not compile template string: {}", e);
+            return;
+        }
+
         // Build Aho-Corasick automaton.
         debug!("Creating Aho-Corasick automaton");
         let at = build_automaton(&patterns);
@@ -59,7 +78,7 @@ fn main() {
         if let Some(ref input_paths) = submatches.values_of("input") {
             for input_path in input_paths {
                 info!("Searching file: {}", input_path);
-                search_file(&patterns, &at, input_path);
+                search_file(&patterns, &at, input_path, &hbs);
             }
         } else {
             warn!("No input file(s) given");
@@ -80,7 +99,7 @@ fn build_automaton(patterns: &Vec<patterns::Pattern>) -> AcAutomaton<Vec<u8>> {
 }
 
 
-fn search_file<P>(patterns: &Vec<patterns::Pattern>, at: &AcAutomaton<Vec<u8>>, input_path: P)
+fn search_file<P>(patterns: &Vec<patterns::Pattern>, at: &AcAutomaton<Vec<u8>>, input_path: P, hbs: &Handlebars)
 where P: std::convert::AsRef<std::path::Path>
 {
     let path = input_path.as_ref();
@@ -102,12 +121,22 @@ where P: std::convert::AsRef<std::path::Path>
             };
             let pattern = &patterns[pati];
 
-            println!("{}:0x{:08x}:{} ({}) - {}",
-                path.display(),
-                mtch.start,
-                pattern.algorithm,
-                endian,
-                pattern.desc);
+            // Insert information into a map that we use for rendering.
+            let mut info = BTreeMap::<String, Json>::new();
+
+            info.insert("path".to_string(),      format!("{}", path.display()).to_json());
+            info.insert("address".to_string(),   format!("0x{:08x}", mtch.start).to_json());
+            info.insert("algorithm".to_string(), pattern.algorithm.to_json());
+            info.insert("endian".to_string(),    endian.to_json());
+            info.insert("desc".to_string(),      pattern.desc.to_json());
+
+            // Run the template.
+            let res = match hbs.render("crypt", &info) {
+                Ok(r)  => r,
+                Err(_) => "error rendering template".to_string(),
+            };
+
+            println!("{}", res);
         }
     });
 }
