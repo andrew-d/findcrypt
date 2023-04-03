@@ -14,7 +14,7 @@ itertools = "0.3"
 libc = "*"
 log = "0.3"
 rustc-serialize = "0.3"
-time = "0.1"
+time = "0.2"
 
 [dependencies.mmap]
 git = "https://github.com/retep998/rust-mmap"
